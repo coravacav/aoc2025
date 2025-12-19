@@ -1,50 +1,68 @@
+//! --- Day 1: Secret Entrance ---
+//!
+//! The Elves have good news and bad news.
+//!
+//! The good news is that they've discovered project management! This has given them the tools they need to prevent their usual Christmas emergency. For example, they now know that the North Pole decorations need to be finished soon so that other critical tasks can start on time.
+//!
+//! The bad news is that they've realized they have a different emergency: according to their resource planning, none of them have any time left to decorate the North Pole!
+//!
+//! To save Christmas, the Elves need you to finish decorating the North Pole by December 12th.
+//!
+//! Collect stars by solving puzzles. Two puzzles will be made available on each day; the second puzzle is unlocked when you complete the first. Each puzzle grants one star. Good luck!
+//!
+//! You arrive at the secret entrance to the North Pole base ready to start decorating. Unfortunately, the password seems to have been changed, so you can't get in. A document taped to the wall helpfully explains:
+//!
+//! "Due to new security protocols, the password is locked in the safe below. Please see the attached document for the new combination."
+//!
+//! The safe has a dial with only an arrow on it; around the dial are the numbers 0 through 99 in order. As you turn the dial, it makes a small click noise as it reaches each number.
+//!
+//! The attached document (your puzzle input) contains a sequence of rotations, one per line, which tell you how to open the safe. A rotation starts with an L or R which indicates whether the rotation should be to the left (toward lower numbers) or to the right (toward higher numbers). Then, the rotation has a distance value which indicates how many clicks the dial should be rotated in that direction.
+//!
+//! So, if the dial were pointing at 11, a rotation of R8 would cause the dial to point at 19. After that, a rotation of L19 would cause it to point at 0.
+//!
+//! Because the dial is a circle, turning the dial left from 0 one click makes it point at 99. Similarly, turning the dial right from 99 one click makes it point at 0.
+//!
+//! So, if the dial were pointing at 5, a rotation of L10 would cause it to point at 95. After that, a rotation of R5 could cause it to point at 0.
+//!
+//! The dial starts by pointing at 50.
+//!
+//! You could follow the instructions, but your recent required official North Pole secret entrance security training seminar taught you that the safe is actually a decoy. The actual password is the number of times the dial is left pointing at 0 after any rotation in the sequence.
+//!
+//! For example, suppose the attached document contained the following rotations:
+//!
+//! ```text
+//! L68
+//! L30
+//! R48
+//! L5
+//! R60
+//! L55
+//! L1
+//! L99
+//! R14
+//! L82
+//! ```
+//! Following these rotations would cause the dial to move as follows:
+//!
+//! - The dial starts by pointing at 50.
+//! - The dial is rotated L68 to point at 82.
+//! - The dial is rotated L30 to point at 52.
+//! - The dial is rotated R48 to point at 0.
+//! - The dial is rotated L5 to point at 95.
+//! - The dial is rotated R60 to point at 55.
+//! - The dial is rotated L55 to point at 0.
+//! - The dial is rotated L1 to point at 99.
+//! - The dial is rotated L99 to point at 0.
+//! - The dial is rotated R14 to point at 14.
+//! - The dial is rotated L82 to point at 32.
+//!
+//! Because the dial points at `0` a total of three times during this process, the password in this example is `3`.
+//!
+//! Analyze the rotations in your attached document. What's the actual password to open the door?
+
 use crate::Solution;
 
-#[derive(Default)]
-struct Val(u16);
-
-impl Val {
-    fn get(&self) -> u8 {
-        self.0.trailing_zeros() as u8
-    }
-
-    fn set(&mut self, n: u8) {
-        self.0 = 1 << n;
-    }
-
-    fn new(n: u8) -> Self {
-        let mut new = Val::default();
-        new.set(n);
-        new
-    }
-}
-
-impl std::fmt::Debug for Val {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        f.write_str(&self.get().to_string())
-    }
-}
-
 pub struct Day1 {}
-
-fn recur_count_solve(mut rem: &[u8], digits_left: u8) -> i64 {
-    if digits_left == 0 {
-        return 0;
-    }
-
-    let (best_index, best_number) = rem[..rem.len() - digits_left as usize + 1]
-        .iter()
-        .enumerate()
-        .fold(
-            (0, 0),
-            |(best_i, best_n), (i, &n)| {
-                if n > best_n { (i, n) } else { (best_i, best_n) }
-            },
-        );
-
-    (best_number as i64) * 10_i64.pow(digits_left as u32 - 1)
-        + recur_count_solve(&rem[best_index + 1..], digits_left - 1)
-}
 
 impl Solution for Day1 {
     fn new() -> Self {
@@ -52,39 +70,7 @@ impl Solution for Day1 {
     }
 
     fn part1(&mut self, input: &str) -> String {
-        input
-            .trim()
-            .lines()
-            .map(|line| {
-                recur_count_solve(
-                    &line.as_bytes().iter().map(|b| b - b'0').collect::<Vec<_>>(),
-                    2,
-                )
-            })
-            .sum::<i64>()
-            .to_string()
-    }
-
-    fn known_solution_part1(&self) -> Option<String> {
-        Some(String::from("17493"))
-    }
-
-    fn part2(&mut self, input: &str) -> String {
-        input
-            .trim()
-            .lines()
-            .map(|line| {
-                recur_count_solve(
-                    &line.as_bytes().iter().map(|b| b - b'0').collect::<Vec<_>>(),
-                    12,
-                )
-            })
-            .sum::<i64>()
-            .to_string()
-    }
-
-    fn known_solution_part2(&self) -> Option<String> {
-        Some(String::from("173685428989126"))
+        input.to_string()
     }
 }
 
@@ -95,30 +81,6 @@ mod tests {
     #[test]
     fn test_part1() {
         let mut solution = Day1::new();
-        assert_eq!(
-            solution.part1(
-                r#"987654321111111
-811111111111119
-234234234234278
-818181911112111"#
-            ),
-            String::from("357")
-        );
+        assert_eq!(solution.part1(r#""#), String::from(""));
     }
-
-    //     #[test]
-    //     fn test_part2() {
-    //         let mut solution = Day1::new();
-    //         assert_eq!(
-    //             solution.part2(
-    //                 r#"3   4
-    // 4   3
-    // 2   5
-    // 1   3
-    // 3   9
-    // 3   3"#
-    //             ),
-    //             String::from("31")
-    //         );
-    //     }
 }

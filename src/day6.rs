@@ -1,76 +1,37 @@
-use std::fmt::Debug;
+//! --- Day 6: Trash Compactor ---
+//!
+//! After helping the Elves in the kitchen, you were taking a break and helping them re-enact a movie scene when you over-enthusiastically jumped into the garbage chute!
+//!
+//! A brief fall later, you find yourself in a garbage smasher. Unfortunately, the door's been magnetically sealed.
+//!
+//! As you try to find a way out, you are approached by a family of cephalopods! They're pretty sure they can get the door open, but it will take some time. While you wait, they're curious if you can help the youngest cephalopod with her math homework.
+//!
+//! Cephalopod math doesn't look that different from normal math. The math worksheet (your puzzle input) consists of a list of problems; each problem has a group of numbers that need to be either added (+) or multiplied (*) together.
+//!
+//! However, the problems are arranged a little strangely; they seem to be presented next to each other in a very long horizontal list. For example:
+//!
+//! ```text
+//! 123 328  51 64
+//! 45 64  387 23
+//! 6 98  215 314
+//! *   +   *   +
+//! ```
+//! Each problem's numbers are arranged vertically; at the bottom of the problem is the symbol for the operation that needs to be performed. Problems are separated by a full column of only spaces. The left/right alignment of numbers within each problem can be ignored.
+//!
+//! So, this worksheet contains four problems:
+//!
+//! - `123` * `45` * `6` = `33210`
+//! - `328` + `64` + `98` = `490`
+//! - `51` * `387` * `215` = `4243455`
+//! - `64` + `23` + `314` = `401`
+//!
+//! To check their work, cephalopod students are given the grand total of adding together all of the answers to the individual problems. In this worksheet, the grand total is `33210` + `490` + `4243455` + `401` = `4277556`.
+//!
+//! Of course, the actual worksheet is much wider. You'll need to make sure to unroll it completely so that you can read the problems clearly.
+//!
+//! Solve the problems on the math worksheet. What is the grand total found by adding together all of the answers to the individual problems?
 
-use ahash::AHashSet;
-use rayon::iter::{IntoParallelRefIterator, ParallelIterator};
-
-use crate::{
-    Solution,
-    direction::QuadDirection,
-    grid::{Coord, Grid},
-};
-
-#[derive(Debug, Clone, Copy)]
-enum GridType {
-    Empty,
-    Wall,
-    Direction(QuadDirection),
-}
-
-impl std::fmt::Display for GridType {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        match self {
-            GridType::Empty => write!(f, "."),
-            GridType::Wall => write!(f, "#"),
-            GridType::Direction(dir) => write!(f, "{}", dir),
-        }
-    }
-}
-
-#[derive(Debug)]
-enum NextResult {
-    Empty,
-    HasBlock,
-    OutOfBounds,
-}
-
-fn next_val(grid: &Grid<GridType>, coord: Coord, dir: QuadDirection) -> NextResult {
-    let next_coord = coord + dir.to_coord_offset();
-
-    if !next_coord.in_bounds(grid.width, grid.height) {
-        return NextResult::OutOfBounds;
-    }
-
-    match grid[next_coord] {
-        GridType::Wall => NextResult::HasBlock,
-        _ => NextResult::Empty,
-    }
-}
-
-fn get_visited_cells_till_exit(
-    grid: &Grid<GridType>,
-    mut coord: Coord,
-    mut dir: QuadDirection,
-) -> AHashSet<Coord> {
-    let mut visited_cells = AHashSet::new();
-
-    loop {
-        visited_cells.insert(coord);
-
-        match next_val(grid, coord, dir) {
-            NextResult::HasBlock => {
-                dir = dir.rotate_right();
-            }
-            NextResult::Empty => {
-                coord += dir.to_coord_offset();
-            }
-            NextResult::OutOfBounds => {
-                break;
-            }
-        }
-    }
-
-    visited_cells
-}
+use crate::Solution;
 
 pub struct Day6 {}
 
@@ -80,94 +41,7 @@ impl Solution for Day6 {
     }
 
     fn part1(&mut self, input: &str) -> String {
-        let grid = Grid::new(input, |c| match c {
-            b'.' => GridType::Empty,
-            b'#' => GridType::Wall,
-            b'^' => GridType::Direction(QuadDirection::Up),
-            b'v' => GridType::Direction(QuadDirection::Down),
-            b'>' => GridType::Direction(QuadDirection::Right),
-            b'<' => GridType::Direction(QuadDirection::Left),
-            _ => unreachable!(),
-        });
-
-        // find the first direction
-        let (coord, dir) = grid
-            .iter_with_coords()
-            .find_map(|(coord, val)| match val {
-                GridType::Direction(dir) => Some((coord, dir)),
-                _ => None,
-            })
-            .unwrap();
-
-        let visited_cells = get_visited_cells_till_exit(&grid, coord, *dir);
-
-        visited_cells.len().to_string()
-    }
-
-    fn known_solution_part1(&self) -> Option<String> {
-        Some(String::from("5131"))
-    }
-
-    fn part2(&mut self, input: &str) -> String {
-        let grid = Grid::new(input, |c| match c {
-            b'.' => GridType::Empty,
-            b'#' => GridType::Wall,
-            b'^' => GridType::Direction(QuadDirection::Up),
-            b'v' => GridType::Direction(QuadDirection::Down),
-            b'>' => GridType::Direction(QuadDirection::Right),
-            b'<' => GridType::Direction(QuadDirection::Left),
-            _ => unreachable!(),
-        });
-
-        // find the first direction
-        let (starting_coord, starting_dir) = grid
-            .iter_with_coords()
-            .find_map(|(coord, val)| match val {
-                GridType::Direction(dir) => Some((coord, dir)),
-                _ => None,
-            })
-            .unwrap();
-
-        let visited_cells = get_visited_cells_till_exit(&grid, starting_coord, *starting_dir);
-
-        visited_cells
-            .par_iter()
-            .map(|to_edit_coord| {
-                let mut coord = starting_coord;
-                let mut dir = *starting_dir;
-                let mut visited_cells = AHashSet::new();
-
-                visited_cells.insert((coord, dir));
-
-                loop {
-                    let next = if *to_edit_coord == (coord + dir.to_coord_offset()) {
-                        NextResult::HasBlock
-                    } else {
-                        next_val(&grid, coord, dir)
-                    };
-
-                    match next {
-                        NextResult::HasBlock => {
-                            dir = dir.rotate_right();
-                        }
-                        NextResult::Empty => {
-                            coord += dir.to_coord_offset();
-                            if !visited_cells.insert((coord, dir)) {
-                                return 1;
-                            }
-                        }
-                        NextResult::OutOfBounds => {
-                            return 0;
-                        }
-                    }
-                }
-            })
-            .sum::<u16>()
-            .to_string()
-    }
-
-    fn known_solution_part2(&self) -> Option<String> {
-        Some("1784".to_string())
+        input.to_string()
     }
 }
 
@@ -178,40 +52,6 @@ mod tests {
     #[test]
     fn test_part1() {
         let mut solution = Day6::new();
-        assert_eq!(
-            solution.part1(
-                r#"....#.....
-.........#
-..........
-..#.......
-.......#..
-..........
-.#..^.....
-........#.
-#.........
-......#..."#
-            ),
-            String::from("41")
-        );
-    }
-
-    #[test]
-    fn test_part2() {
-        let mut solution = Day6::new();
-        assert_eq!(
-            solution.part2(
-                r#"....#.....
-.........#
-..........
-..#.......
-.......#..
-..........
-.#..^.....
-........#.
-#.........
-......#..."#
-            ),
-            String::from("6")
-        );
+        assert_eq!(solution.part1(r#""#), String::from(""));
     }
 }

@@ -1,6 +1,42 @@
-use ahash::AHashMap;
-use itertools::Itertools;
-use rand::seq::SliceRandom;
+//! --- Day 5: Cafeteria ---
+//!
+//! As the forklifts break through the wall, the Elves are delighted to discover that there was a cafeteria on the other side after all.
+//!
+//! You can hear a commotion coming from the kitchen. "At this rate, we won't have any time left to put the wreaths up in the dining hall!" Resolute in your quest, you investigate.
+//!
+//! "If only we hadn't switched to the new inventory management system right before Christmas!" another Elf exclaims. You ask what's going on.
+//!
+//! The Elves in the kitchen explain the situation: because of their complicated new inventory management system, they can't figure out which of their ingredients are fresh and which are spoiled. When you ask how it works, they give you a copy of their database (your puzzle input).
+//!
+//! The database operates on ingredient IDs. It consists of a list of fresh ingredient ID ranges, a blank line, and a list of available ingredient IDs. For example:
+//!
+//! ```text
+//! 3-5
+//! 10-14
+//! 16-20
+//! 12-18
+//!
+//! 1
+//! 5
+//! 8
+//! 11
+//! 17
+//! 32
+//! ```
+//! The fresh ID ranges are inclusive: the range 3-5 means that ingredient IDs 3, 4, and 5 are all fresh. The ranges can also overlap; an ingredient ID is fresh if it is in any range.
+//!
+//! The Elves are trying to determine which of the available ingredient IDs are fresh. In this example, this is done as follows:
+//!
+//! - Ingredient ID 1 is spoiled because it does not fall into any range.
+//! - Ingredient ID 5 is fresh because it falls into range 3-5.
+//! - Ingredient ID 8 is spoiled.
+//! - Ingredient ID 11 is fresh because it falls into range 10-14.
+//! - Ingredient ID 17 is fresh because it falls into range 16-20 as well as range 12-18.
+//! - Ingredient ID 32 is spoiled.
+//!
+//! So, in this example, 3 of the available ingredient IDs are fresh.
+//!
+//! Process the database file from the new inventory management system. How many of the available ingredient IDs are fresh?
 
 use crate::Solution;
 
@@ -12,135 +48,7 @@ impl Solution for Day5 {
     }
 
     fn part1(&mut self, input: &str) -> String {
-        let mut map: AHashMap<u32, Vec<u32>> = AHashMap::new();
-
-        let (rules, checks) = input.split_once("\n\n").unwrap();
-
-        for rule in rules.lines() {
-            let (a, b) = rule.split_once("|").unwrap();
-            map.entry(a.parse::<u32>().unwrap())
-                .or_default()
-                .push(b.parse::<u32>().unwrap());
-        }
-
-        checks
-            .lines()
-            .map(|check| {
-                check
-                    .split(",")
-                    .map(|x| x.parse::<u32>().unwrap())
-                    .collect_vec()
-            })
-            .filter(|all| {
-                for a in 0..all.len() {
-                    for b in a..all.len() {
-                        if a == b {
-                            continue;
-                        }
-
-                        let a = all[a];
-                        let b = all[b];
-
-                        if map.get(&a).map(|x| x.contains(&b)).unwrap_or(false) {
-                            continue;
-                        } else {
-                            return false;
-                        }
-                    }
-                }
-
-                true
-            })
-            .map(|all| all[all.len() / 2])
-            .sum::<u32>()
-            .to_string()
-    }
-
-    fn known_solution_part1(&self) -> Option<String> {
-        Some(String::from("4609"))
-    }
-
-    fn part2(&mut self, input: &str) -> String {
-        let mut map: AHashMap<u32, Vec<u32>> = AHashMap::new();
-
-        let (rules, checks) = input.split_once("\n\n").unwrap();
-
-        for rule in rules.lines() {
-            let (a, b) = rule.split_once("|").unwrap();
-            map.entry(a.parse::<u32>().unwrap())
-                .or_default()
-                .push(b.parse::<u32>().unwrap());
-        }
-
-        fn check_one(all: &[u32], map: &AHashMap<u32, Vec<u32>>) -> bool {
-            if all.is_empty() {
-                return true;
-            }
-
-            for a in 0..all.len() {
-                for b in a..all.len() {
-                    if a == b {
-                        continue;
-                    }
-
-                    let a = all[a];
-                    let b = all[b];
-
-                    if map.get(&a).map(|x| x.contains(&b)).unwrap_or(false) {
-                        continue;
-                    } else {
-                        return false;
-                    }
-                }
-            }
-
-            true
-        }
-
-        checks
-            .lines()
-            .map(|check| {
-                check
-                    .split(",")
-                    .map(|x| x.parse::<u32>().unwrap())
-                    .collect_vec()
-            })
-            .filter(|all| !check_one(all, &map))
-            .map(|mut all| {
-                let mut result: Vec<u32> = vec![];
-
-                while !check_one(&all, &map) {
-                    // check first for incoming edges
-                    let first = all[0];
-
-                    let incoming_count = all
-                        .iter()
-                        .flat_map(|t| map.get(t).map(|v| (t, v)))
-                        .filter(|to| all.contains(to.0))
-                        .filter(|to| to.1.contains(&first))
-                        .count();
-
-                    if incoming_count == 0 {
-                        // pop the first element
-                        result.push(all.remove(0));
-                    }
-
-                    all.shuffle(&mut rand::thread_rng());
-                }
-
-                for x in all {
-                    result.push(x);
-                }
-
-                result
-            })
-            .map(|all| all[all.len() / 2])
-            .sum::<u32>()
-            .to_string()
-    }
-
-    fn known_solution_part2(&self) -> Option<String> {
-        Some(String::from("5723"))
+        input.to_string()
     }
 }
 
@@ -151,76 +59,6 @@ mod tests {
     #[test]
     fn test_part1() {
         let mut solution = Day5::new();
-        assert_eq!(
-            solution.part1(
-                r#"47|53
-97|13
-97|61
-97|47
-75|29
-61|13
-75|53
-29|13
-97|29
-53|29
-61|53
-97|53
-61|29
-47|13
-75|47
-97|75
-47|61
-75|61
-47|29
-75|13
-53|13
-
-75,47,61,53,29
-97,61,53,29,13
-75,29,13
-75,97,47,61,53
-61,13,29
-97,13,75,29,47"#
-            ),
-            String::from("143")
-        );
-    }
-
-    #[test]
-    fn test_part2() {
-        let mut solution = Day5::new();
-        assert_eq!(
-            solution.part2(
-                r#"47|53
-97|13
-97|61
-97|47
-75|29
-61|13
-75|53
-29|13
-97|29
-53|29
-61|53
-97|53
-61|29
-47|13
-75|47
-97|75
-47|61
-75|61
-47|29
-75|13
-53|13
-
-75,47,61,53,29
-97,61,53,29,13
-75,29,13
-75,97,47,61,53
-61,13,29
-97,13,75,29,47"#
-            ),
-            String::from("123")
-        );
+        assert_eq!(solution.part1(r#""#), String::from(""));
     }
 }

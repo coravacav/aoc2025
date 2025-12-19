@@ -1,10 +1,97 @@
-use ahash::AHashSet;
+//! --- Day 12: Christmas Tree Farm ---
+//!
+//! You're almost out of time, but there can't be much left to decorate. Although there are no stairs, elevators, escalators, tunnels, chutes, teleporters, firepoles, or conduits here that would take you deeper into the North Pole base, there is a ventilation duct. You jump in.
+//!
+//! After bumping around for a few minutes, you emerge into a large, well-lit cavern full of Christmas trees!
+//!
+//! There are a few Elves here frantically decorating before the deadline. They think they'll be able to finish most of the work, but the one thing they're worried about is the presents for all the young Elves that live here at the North Pole. It's an ancient tradition to put the presents under the trees, but the Elves are worried they won't fit.
+//!
+//! The presents come in a few standard but very weird shapes. The shapes and the regions into which they need to fit are all measured in standard units. To be aesthetically pleasing, the presents need to be placed into the regions in a way that follows a standardized two-dimensional unit grid; you also can't stack presents.
+//!
+//! As always, the Elves have a summary of the situation (your puzzle input) for you. First, it contains a list of the presents' shapes. Second, it contains the size of the region under each tree and a list of the number of presents of each shape that need to fit into that region. For example:
+//! ```text
+//! 0:
+//! ###
+//! ##.
+//! ##.
+//!
+//! 1:
+//! ###
+//! ##.
+//! .##
+//!
+//! 2:
+//! .##
+//! ###
+//! ##.
+//!
+//! 3:
+//! ##.
+//! ###
+//! ##.
+//!
+//! 4:
+//! ###
+//! #..
+//! ###
+//!
+//! 5:
+//! ###
+//! .#.
+//! ###
+//!
+//! 4x4: 0 0 0 0 2 0
+//! 12x5: 1 0 1 0 2 2
+//! 12x5: 1 0 1 0 3 2
+//! ```
+//! The first section lists the standard present shapes. For convenience, each shape starts with its index and a colon; then, the shape is displayed visually, where # is part of the shape and . is not.
+//! The second section lists the regions under the trees. Each line starts with the width and length of the region; 12x5 means the region is 12 units wide and 5 units long. The rest of the line describes the presents that need to fit into that region by listing the quantity of each shape of present; 1 0 1 0 3 2 means you need to fit one present with shape index 0, no presents with shape index 1, one present with shape index 2, no presents with shape index 3, three presents with shape index 4, and two presents with shape index 5.
+//!
+//! Presents can be rotated and flipped as necessary to make them fit in the available space, but they have to always be placed perfectly on the grid. Shapes can't overlap (that is, the # part from two different presents can't go in the same place on the grid), but they can fit together (that is, the . part in a present's shape's diagram does not block another present from occupying that space on the grid).
+//!
+//! The Elves need to know how many of the regions can fit the presents listed. In the above example, there are six unique present shapes and three regions that need checking.
+//!
+//! The first region is 4x4:
+//!
+//! ```text
+//! ....
+//! ....
+//! ....
+//! ....
+//! ```
+//! In it, you need to determine whether you could fit two presents that have shape index 4:
+//!
+//! ```text
+//! ###
+//! #..
+//! ###
+//! ```
+//! After some experimentation, it turns out that you can fit both presents in this region. Here is one way to do it, using A to represent one present and B to represent the other:
+//!
+//! ```text
+//! AAA.
+//! ABAB
+//! ABAB
+//! .BBB
+//! ```
+//! The second region, 12x5: 1 0 1 0 2 2, is 12 units wide and 5 units long. In that region, you need to try to fit one present with shape index 0, one present with shape index `2`, two presents with shape index `4`, and two presents with shape index 5.
+//!
+//! It turns out that these presents can all fit in this region. Here is one way to do it, again using different capital letters to represent all the required presents:
+//!
+//! ```text
+//! ....AAAFFE.E
+//! .BBBAAFFFEEE
+//! DDDBAAFFCECE
+//! DBBB....CCC.
+//! DDD.....C.C.
+//! ```
+//! The third region, `12x5: 1 0 1 0 3 2,` is the same size as the previous region; the only difference is that this region needs to fit one additional present with shape index `4`. Unfortunately, no matter how hard you try, there is no way to fit all of the presents into this region.
+//!
+//! So, in this example, 2 regions can fit all of their listed presents.
+//!
+//! Consider the regions beneath each tree and the presents the Elves would like to fit into each of them. How many of the regions can fit all of the presents listed?
 
-use crate::{
-    Solution,
-    direction::QuadDirection,
-    grid::{Coord, Grid},
-};
+use crate::Solution;
 
 pub struct Day12 {}
 
@@ -14,166 +101,7 @@ impl Solution for Day12 {
     }
 
     fn part1(&mut self, input: &str) -> String {
-        let grid = Grid::new(input, |c| c as char);
-        let mut visited = Grid::new(input, |_| false);
-        let mut perimeter_sum = 0;
-
-        for (coord, &value) in grid.iter_with_coords() {
-            if visited[coord] {
-                continue;
-            }
-
-            let mut stack = vec![coord];
-            let mut output_stack = AHashSet::new();
-            output_stack.insert(coord);
-
-            while let Some(current) = stack.pop() {
-                if visited[current] {
-                    continue;
-                }
-                visited[current] = true;
-
-                for &direction in QuadDirection::get_all_directions() {
-                    let neighbor = current + direction;
-                    if grid.is_coord_in_bounds(neighbor)
-                        && !visited[neighbor]
-                        && grid[neighbor] == value
-                    {
-                        stack.push(neighbor);
-                        output_stack.insert(neighbor);
-                    }
-                }
-            }
-
-            let mut region_perimeter = 0;
-            for &current in &output_stack {
-                for &direction in QuadDirection::get_all_directions() {
-                    let neighbor = current + direction;
-                    if !grid.is_coord_in_bounds(neighbor) || grid[neighbor] != value {
-                        region_perimeter += 1;
-                    }
-                }
-            }
-
-            perimeter_sum += region_perimeter * output_stack.len();
-        }
-
-        perimeter_sum.to_string()
-    }
-
-    fn known_solution_part1(&self) -> Option<String> {
-        Some(String::from("1461752"))
-    }
-
-    fn part2(&mut self, input: &str) -> String {
-        let grid = Grid::new(input, |c| c as char);
-        let mut visited = Grid::new(input, |_| false);
-        let mut perimeter_sum = 0;
-
-        for (coord, &value) in grid.iter_with_coords() {
-            if visited[coord] {
-                continue;
-            }
-
-            let mut stack = vec![coord];
-            let mut output_stack = AHashSet::new();
-            output_stack.insert(coord);
-
-            while let Some(current) = stack.pop() {
-                if visited[current] {
-                    continue;
-                }
-                visited[current] = true;
-
-                for &direction in QuadDirection::get_all_directions() {
-                    let neighbor = current + direction;
-                    if grid.is_coord_in_bounds(neighbor)
-                        && !visited[neighbor]
-                        && grid[neighbor] == value
-                    {
-                        stack.push(neighbor);
-                        output_stack.insert(neighbor);
-                    }
-                }
-            }
-
-            let output_stack: Vec<Coord> = output_stack.into_iter().collect();
-
-            let mut perimeter = vec![];
-            for &current in &output_stack {
-                for &direction in QuadDirection::get_all_directions() {
-                    let neighbor = current + direction;
-                    if !grid.is_coord_in_bounds(neighbor) || grid[neighbor] != value {
-                        perimeter.push((current, direction));
-                    }
-                }
-            }
-
-            // deduplicate "faces" into edges
-
-            #[derive(Debug, Clone, Copy, Eq, PartialEq, Hash)]
-            struct Edge {
-                from: Coord,
-                to: Coord,
-                facing: QuadDirection,
-            }
-
-            impl Edge {
-                fn combine_edges(self, other: Self) -> Option<Self> {
-                    if self.facing != other.facing {
-                        return None;
-                    }
-
-                    if self.from.is_adjacent(other.to) || self.to.is_adjacent(other.from) {
-                        let (from, to) = [(other.from, self.to), (other.to, self.from)]
-                            .iter()
-                            .copied()
-                            .max_by_key(|&(x, y)| x.manhattan_distance(y))
-                            .unwrap();
-
-                        return Some(Edge {
-                            from,
-                            to,
-                            facing: self.facing,
-                        });
-                    }
-
-                    None
-                }
-            }
-
-            perimeter.sort();
-
-            let edges: Vec<Edge> = perimeter
-                .iter()
-                .map(|&(coord, direction)| Edge {
-                    from: coord,
-                    to: coord,
-                    facing: direction,
-                })
-                .fold(vec![], |mut all: Vec<Edge>, edge| {
-                    let mut combined = false;
-                    for saved_edge in all.iter_mut() {
-                        if let Some(new_edge) = saved_edge.combine_edges(edge) {
-                            *saved_edge = new_edge;
-                            combined = true;
-                        }
-                    }
-                    if !combined {
-                        all.push(edge);
-                    }
-
-                    all
-                });
-
-            perimeter_sum += edges.len() * output_stack.len();
-        }
-
-        perimeter_sum.to_string()
-    }
-
-    fn known_solution_part2(&self) -> Option<String> {
-        None
+        input.to_string()
     }
 }
 
@@ -184,73 +112,6 @@ mod tests {
     #[test]
     fn test_part1() {
         let mut solution = Day12::new();
-
-        assert_eq!(solution.part1(r#"AA"#), String::from("12"));
-
-        assert_eq!(
-            solution.part1(
-                r#"OOOOO
-OXOXO
-OOOOO
-OXOXO
-OOOOO"#
-            ),
-            String::from("772")
-        );
-
-        assert_eq!(
-            solution.part1(
-                r#"AAAA
-BBCD
-BBCC
-EEEC"#
-            ),
-            String::from("140")
-        );
-
-        assert_eq!(
-            solution.part1(
-                r#"RRRRIICCFF
-RRRRIICCCF
-VVRRRCCFFF
-VVRCCCJFFF
-VVVVCJJCFE
-VVIVCCJJEE
-VVIIICJJEE
-MIIIIIJJEE
-MIIISIJEEE
-MMMISSJEEE"#
-            ),
-            String::from("1930")
-        );
-    }
-
-    #[test]
-    fn test_part2() {
-        let mut solution = Day12::new();
-
-        assert_eq!(solution.part2(r#"AAAA"#), String::from("16"));
-
-        assert_eq!(
-            solution.part2(
-                r#"AAAA
-BBCD
-BBCC
-EEEC"#
-            ),
-            String::from("80")
-        );
-
-        assert_eq!(
-            solution.part2(
-                r#"AAAAAA
-AAABBA
-AAABBA
-ABBAAA
-ABBAAA
-AAAAAA"#
-            ),
-            String::from("368")
-        );
+        assert_eq!(solution.part1(r#""#), String::from(""));
     }
 }

@@ -1,92 +1,50 @@
-use itertools::Itertools;
+//! --- Day 4: Printing Department ---
+//!
+//! You ride the escalator down to the printing department. They're clearly getting ready for Christmas; they have lots of large rolls of paper everywhere, and there's even a massive printer in the corner (to handle the really big print jobs).
+//!
+//! Decorating here will be easy: they can make their own decorations. What you really need is a way to get further into the North Pole base while the elevators are offline.
+//!
+//! "Actually, maybe we can help with that," one of the Elves replies when you ask for help. "We're pretty sure there's a cafeteria on the other side of the back wall. If we could break through the wall, you'd be able to keep moving. It's too bad all of our forklifts are so busy moving those big rolls of paper around."
+//!
+//! If you can optimize the work the forklifts are doing, maybe they would have time to spare to break through the wall.
+//!
+//! The rolls of paper (@) are arranged on a large grid; the Elves even have a helpful diagram (your puzzle input) indicating where everything is located.
+//!
+//! For example:
+//!
+//! ```text
+//! ..@@.@@@@.
+//! @@@.@.@.@@
+//! @@@@@.@.@@
+//! @.@@@@..@.
+//! @@.@@@@.@@
+//! .@@@@@@@.@
+//! .@.@.@.@@@
+//! @.@@@.@@@@
+//! .@@@@@@@@.
+//! @.@.@@@.@.
+//! ```
+//! The forklifts can only access a roll of paper if there are fewer than four rolls of paper in the eight adjacent positions. If you can figure out which rolls of paper the forklifts can access, they'll spend less time looking and more time breaking down the wall to the cafeteria.
+//!
+//! In this example, there are 13 rolls of paper that can be accessed by a forklift (marked with x):
+//!
+//! ```text
+//! ..xx.xx@x.
+//! x@@.@.@.@@
+//! @@@@@.x.@@
+//! @.@@@@..@.
+//! x@.@@@@.@x
+//! .@@@@@@@.@
+//! .@.@.@.@@@
+//! x.@@@.@@@@
+//! .@@@@@@@@.
+//! x.x.@@@.x.
+//! ```
+//! Consider your complete diagram of the paper roll locations. How many rolls of paper can be accessed by a forklift?
 
 use crate::Solution;
 
 pub struct Day4 {}
-
-#[derive(Debug)]
-struct Matrix {
-    data: Vec<Vec<u8>>,
-    col_count: i16,
-    row_count: i16,
-}
-
-impl Matrix {
-    fn new(input: &str) -> Self {
-        let mut input_array: Vec<Vec<u8>> = vec![];
-        let col_count = input.lines().next().unwrap().chars().count();
-        let row_count = input.lines().count();
-
-        for line in input.lines() {
-            let mut line_array = vec![];
-            for c in line.as_bytes() {
-                line_array.push(*c);
-            }
-            input_array.push(line_array);
-        }
-
-        Self {
-            data: input_array,
-            col_count: col_count as i16,
-            row_count: row_count as i16,
-        }
-    }
-
-    fn get(&self, row: i16, col: i16, inc_row: i16, inc_col: i16) -> Option<u8> {
-        let (row, col) = (row + inc_row, col + inc_col);
-        if row < 0 || col < 0 || col >= self.col_count || row >= self.row_count {
-            None
-        } else {
-            Some(self.data[row as usize][col as usize])
-        }
-    }
-
-    fn iterate_all(&self) -> impl Iterator<Item = (u8, u8, u8, u8)> {
-        (-1..=1).cartesian_product(-1..=1).flat_map(move |(x, y)| {
-            (0..self.row_count)
-                .flat_map(move |row| (0..self.col_count).map(move |col| (row, col)))
-                .flat_map(move |(row, col)| {
-                    if let (Some(a), Some(b), Some(c), Some(d)) = (
-                        self.get(row, col, 0, 0),
-                        self.get(row, col, x, y),
-                        self.get(row, col, x * 2, y * 2),
-                        self.get(row, col, x * 3, y * 3),
-                    ) {
-                        Some((a, b, c, d))
-                    } else {
-                        None
-                    }
-                })
-        })
-    }
-
-    fn iterate_all_2(&self) -> impl Iterator<Item = (u8, u8, u8, u8, u8)> {
-        [
-            [(-1, -1), (-1, 1), (1, -1), (1, 1)],
-            [(-1, 1), (1, 1), (-1, -1), (1, -1)],
-            [(-1, 1), (-1, -1), (1, 1), (1, -1)],
-            [(1, 1), (-1, -1), (1, -1), (-1, 1)],
-        ]
-        .iter()
-        .flat_map(move |xys| {
-            (0..self.row_count)
-                .flat_map(move |row| (0..self.col_count).map(move |col| (row, col)))
-                .flat_map(move |(row, col)| {
-                    if let (Some(a), Some(b), Some(c), Some(d), Some(e)) = (
-                        self.get(row, col, xys[0].0, xys[0].1),
-                        self.get(row, col, xys[1].0, xys[1].1),
-                        self.get(row, col, 0, 0),
-                        self.get(row, col, xys[2].0, xys[2].1),
-                        self.get(row, col, xys[3].0, xys[3].1),
-                    ) {
-                        Some((a, b, c, d, e))
-                    } else {
-                        None
-                    }
-                })
-        })
-    }
-}
 
 impl Solution for Day4 {
     fn new() -> Self {
@@ -94,27 +52,7 @@ impl Solution for Day4 {
     }
 
     fn part1(&mut self, input: &str) -> String {
-        Matrix::new(input)
-            .iterate_all()
-            .filter(|c| matches!(c, (b'X', b'M', b'A', b'S')))
-            .count()
-            .to_string()
-    }
-
-    fn known_solution_part1(&self) -> Option<String> {
-        Some("2618".to_string())
-    }
-
-    fn part2(&mut self, input: &str) -> String {
-        Matrix::new(input)
-            .iterate_all_2()
-            .filter(|c| matches!(c, (b'M', b'S', b'A', b'M', b'S')))
-            .count()
-            .to_string()
-    }
-
-    fn known_solution_part2(&self) -> Option<String> {
-        Some("2011".to_string())
+        input.to_string()
     }
 }
 
@@ -125,42 +63,6 @@ mod tests {
     #[test]
     fn test_part1() {
         let mut solution = Day4::new();
-
-        assert_eq!(
-            solution.part1(
-                r#"....XXMAS.
-.SAMXMS...
-...S..A...
-..A.A.MS.X
-XMASAMX.MM
-X.....XA.A
-S.S.S.S.SS
-.A.A.A.A.A
-..M.M.M.MM
-.X.X.XMASX"#
-            ),
-            String::from("18")
-        );
-    }
-
-    #[test]
-    fn test_part2() {
-        let mut solution = Day4::new();
-
-        assert_eq!(
-            solution.part2(
-                r#".M.S......
-..A..MSMS.
-.M.S.MAA..
-..A.ASMSM.
-.M.S.M....
-..........
-S.S.S.S.S.
-.A.A.A.A..
-M.M.M.M.M.
-.........."#
-            ),
-            String::from("9")
-        );
+        assert_eq!(solution.part1(r#""#), String::from(""));
     }
 }

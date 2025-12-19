@@ -1,4 +1,4 @@
-use aoc2024::{get_input, get_solution};
+use aoc2025::{get_input, get_solution};
 use clap::Parser;
 
 #[derive(Parser)]
