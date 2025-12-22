@@ -1,27 +1,35 @@
 use crate::grid::Coord;
 
 #[derive(Debug, Copy, Clone, Eq, PartialEq, Hash, PartialOrd, Ord)]
-pub enum QuadDirection {
+pub enum Direction {
     Up,
     Down,
     Left,
     Right,
+    UpRight,
+    UpLeft,
+    DownRight,
+    DownLeft,
     None,
 }
 
-impl std::fmt::Display for QuadDirection {
+impl std::fmt::Display for Direction {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         match self {
-            QuadDirection::Up => write!(f, "^"),
-            QuadDirection::Down => write!(f, "v"),
-            QuadDirection::Left => write!(f, "<"),
-            QuadDirection::Right => write!(f, ">"),
-            QuadDirection::None => write!(f, "?"),
+            Direction::Up => write!(f, "⬆️"),
+            Direction::Down => write!(f, "⬇️"),
+            Direction::Left => write!(f, "⬅️"),
+            Direction::Right => write!(f, "➡️"),
+            Direction::UpRight => write!(f, "↗️"),
+            Direction::UpLeft => write!(f, "↖️"),
+            Direction::DownRight => write!(f, "↘️"),
+            Direction::DownLeft => write!(f, "↙️"),
+            Direction::None => write!(f, "⍰"),
         }
     }
 }
 
-impl From<char> for QuadDirection {
+impl From<char> for Direction {
     fn from(c: char) -> Self {
         match c {
             '^' => Self::Up,
@@ -33,53 +41,54 @@ impl From<char> for QuadDirection {
     }
 }
 
-impl QuadDirection {
-    pub fn rotate_right(self) -> QuadDirection {
+impl Direction {
+    #[inline(always)]
+    pub fn rotate_right_quad(self) -> Direction {
         match self {
             Self::Up => Self::Right,
             Self::Down => Self::Left,
             Self::Left => Self::Up,
             Self::Right => Self::Down,
+            Self::UpRight => Self::DownRight,
+            Self::UpLeft => Self::UpRight,
+            Self::DownRight => Self::DownLeft,
+            Self::DownLeft => Self::UpLeft,
             Self::None => panic!("Cannot rotate None"),
         }
     }
 
+    #[inline(always)]
+    pub fn rotate_right(self) -> Direction {
+        match self {
+            Direction::Up => Direction::UpRight,
+            Direction::UpRight => Direction::Right,
+            Direction::Right => Direction::DownRight,
+            Direction::DownRight => Direction::Down,
+            Direction::Down => Direction::DownLeft,
+            Direction::DownLeft => Direction::Left,
+            Direction::Left => Direction::UpLeft,
+            Direction::UpLeft => Direction::Up,
+            Self::None => panic!("Cannot rotate None"),
+        }
+    }
+
+    #[inline(always)]
     pub fn to_coord_offset(self) -> Coord {
         match self {
             Self::Up => Coord::new(-1, 0),
+            Self::UpRight => Coord::new(-1, 1),
+            Self::UpLeft => Coord::new(-1, -1),
             Self::Down => Coord::new(1, 0),
+            Self::DownRight => Coord::new(1, 1),
+            Self::DownLeft => Coord::new(1, -1),
             Self::Left => Coord::new(0, -1),
             Self::Right => Coord::new(0, 1),
             Self::None => panic!("Cannot get offset of None"),
         }
     }
-
-    pub fn get_non_opposite_directions(self) -> &'static [Self] {
-        match self {
-            Self::Up => &[Self::Right, Self::Up, Self::Left],
-            Self::Down => &[Self::Left, Self::Down, Self::Right],
-            Self::Left => &[Self::Down, Self::Left, Self::Up],
-            Self::Right => &[Self::Up, Self::Right, Self::Down],
-            Self::None => &[Self::Right, Self::Down, Self::Left, Self::Up],
-        }
-    }
-
-    pub fn get_all_other_directions(self) -> &'static [Self] {
-        match self {
-            Self::Up => &[Self::Right, Self::Down, Self::Left],
-            Self::Down => &[Self::Left, Self::Up, Self::Right],
-            Self::Left => &[Self::Up, Self::Right, Self::Down],
-            Self::Right => &[Self::Down, Self::Left, Self::Up],
-            Self::None => &[Self::Right, Self::Down, Self::Left, Self::Up],
-        }
-    }
-
-    pub fn get_all_directions() -> &'static [Self] {
-        &[Self::Up, Self::Down, Self::Left, Self::Right]
-    }
 }
 
-impl std::ops::Add<Coord> for QuadDirection {
+impl std::ops::Add<Coord> for Direction {
     type Output = Coord;
 
     fn add(self, other: Coord) -> Self::Output {
@@ -87,30 +96,30 @@ impl std::ops::Add<Coord> for QuadDirection {
     }
 }
 
-impl std::ops::Add<QuadDirection> for Coord {
+impl std::ops::Add<Direction> for Coord {
     type Output = Coord;
 
-    fn add(self, other: QuadDirection) -> Self::Output {
+    fn add(self, other: Direction) -> Self::Output {
         self + other.to_coord_offset()
     }
 }
 
-impl std::ops::AddAssign<QuadDirection> for Coord {
-    fn add_assign(&mut self, other: QuadDirection) {
+impl std::ops::AddAssign<Direction> for Coord {
+    fn add_assign(&mut self, other: Direction) {
         *self += other.to_coord_offset();
     }
 }
 
-impl std::ops::Sub<QuadDirection> for Coord {
+impl std::ops::Sub<Direction> for Coord {
     type Output = Coord;
 
-    fn sub(self, other: QuadDirection) -> Self::Output {
+    fn sub(self, other: Direction) -> Self::Output {
         self - other.to_coord_offset()
     }
 }
 
-impl std::ops::SubAssign<QuadDirection> for Coord {
-    fn sub_assign(&mut self, other: QuadDirection) {
+impl std::ops::SubAssign<Direction> for Coord {
+    fn sub_assign(&mut self, other: Direction) {
         *self -= other.to_coord_offset();
     }
 }

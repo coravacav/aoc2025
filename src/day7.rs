@@ -134,7 +134,32 @@
 //!
 //! Analyze your manifold diagram. How many times will the beam be split?
 
-use crate::Solution;
+use std::collections::HashMap;
+
+use crate::{
+    Solution,
+    direction::Direction,
+    grid::{Coord, Grid},
+};
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+enum Cell {
+    Empty,
+    Start,
+    Splitter,
+    Laser,
+}
+
+impl std::fmt::Display for Cell {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        match self {
+            Cell::Empty => write!(f, "."),
+            Cell::Start => write!(f, "S"),
+            Cell::Splitter => write!(f, "^"),
+            Cell::Laser => write!(f, "|"),
+        }
+    }
+}
 
 pub struct Day7 {}
 
@@ -144,7 +169,98 @@ impl Solution for Day7 {
     }
 
     fn part1(&mut self, input: &str) -> String {
-        input.to_string()
+        let mut grid = Grid::new(
+            input,
+            |c| match c {
+                '.' => Cell::Empty,
+                'S' => Cell::Start,
+                '^' => Cell::Splitter,
+                _ => panic!("Invalid character"),
+            },
+            false,
+        );
+
+        grid.set(
+            grid.find(Cell::Start).unwrap() + Direction::Down,
+            Cell::Laser,
+        );
+
+        loop {
+            let cells_to_add_lasers = grid.find_where(|v, c| {
+                *v != Cell::Laser
+                    && ((*v == Cell::Empty && grid.get(c + Direction::Up) == Some(&Cell::Laser))
+                        || ((grid.get(c + Direction::Left) == Some(&Cell::Splitter)
+                            && grid.get(c + Direction::UpLeft) == Some(&Cell::Laser))
+                            || (grid.get(c + Direction::Right) == Some(&Cell::Splitter)
+                                && grid.get(c + Direction::UpRight) == Some(&Cell::Laser))))
+            });
+
+            if cells_to_add_lasers.is_empty() {
+                break;
+            }
+
+            for c in cells_to_add_lasers {
+                grid.set(c, Cell::Laser);
+            }
+        }
+
+        grid.find_where(|v, c| {
+            *v == Cell::Splitter && grid.get(c + Direction::Up) == Some(&Cell::Laser)
+        })
+        .len()
+        .to_string()
+    }
+
+    fn part2(&mut self, input: &str) -> String {
+        let grid = Grid::new(
+            input,
+            |c| match c {
+                '.' => Cell::Empty,
+                'S' => Cell::Start,
+                '^' => Cell::Splitter,
+                _ => panic!("Invalid character"),
+            },
+            false,
+        );
+
+        let mut splitter_cache: HashMap<Coord, u64> = HashMap::new();
+
+        fn traverse_grid(
+            grid: &Grid<Cell>,
+            splitter_cache: &mut HashMap<Coord, u64>,
+            coord: Coord,
+        ) -> u64 {
+            if !grid.is_coord_in_bounds(coord) {
+                return 0;
+            }
+            if grid.get(coord) == Some(&Cell::Splitter) {
+                if splitter_cache.contains_key(&coord) {
+                    return splitter_cache[&coord];
+                } else {
+                    let ret = {
+                        let left = traverse_grid(grid, splitter_cache, coord + Direction::Left);
+                        let right = traverse_grid(grid, splitter_cache, coord + Direction::Right);
+                        left + right
+                    };
+                    splitter_cache.insert(coord, ret);
+                    return ret;
+                }
+            } else {
+                let next_coord = coord + Direction::Down;
+                if !grid.is_coord_in_bounds(next_coord) {
+                    return 1;
+                } else {
+                    return traverse_grid(grid, splitter_cache, next_coord);
+                }
+            }
+        }
+
+        traverse_grid(
+            &grid,
+            &mut splitter_cache,
+            grid.find(Cell::Start).unwrap() + Direction::Down,
+        )
+        .to_string()
     }
 }
 
@@ -155,6 +271,52 @@ mod tests {
     #[test]
     fn test_part1() {
         let mut solution = Day7::new();
-        assert_eq!(solution.part1(r#""#), String::from(""));
+        assert_eq!(
+            solution.part1(
+                r#".......S.......
+...............
+.......^.......
+...............
+......^.^......
+...............
+.....^.^.^.....
+...............
+....^.^...^....
+...............
+...^.^...^.^...
+...............
+..^...^.....^..
+...............
+.^.^.^.^.^...^.
+..............."#
+            ),
+            String::from("21")
+        );
+    }
+
+    #[test]
+    fn test_part2() {
+        let mut solution = Day7::new();
+        assert_eq!(
+            solution.part2(
+                r#".......S.......
+...............
+.......^.......
+...............
+......^.^......
+...............
+.....^.^.^.....
+...............
+....^.^...^....
+...............
+...^.^...^.^...
+...............
+..^...^.....^..
+...............
+.^.^.^.^.^...^.
+..............."#
+            ),
+            String::from("40")
+        );
     }
 }

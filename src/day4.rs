@@ -42,7 +42,26 @@
 //! ```
 //! Consider your complete diagram of the paper roll locations. How many rolls of paper can be accessed by a forklift?
 
-use crate::Solution;
+use std::fmt::Display;
+
+use itertools::Itertools;
+
+use crate::{Solution, grid::Grid};
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+enum Type {
+    Dot,
+    Roll,
+}
+
+impl Display for Type {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        match self {
+            Type::Dot => write!(f, "."),
+            Type::Roll => write!(f, "@"),
+        }
+    }
+}
 
 pub struct Day4 {}
 
@@ -52,7 +71,72 @@ impl Solution for Day4 {
     }
 
     fn part1(&mut self, input: &str) -> String {
-        input.to_string()
+        let grid = Grid::new(
+            input,
+            |c| match c {
+                '.' => Type::Dot,
+                '@' => Type::Roll,
+                _ => panic!("Invalid character"),
+            },
+            false,
+        );
+
+        grid.iter_with_coords()
+            .filter(|(v, _)| **v == Type::Roll)
+            .map(|(_, c)| (c, grid.survey_octo(c)))
+            .filter(|(_, survey)| {
+                survey
+                    .iter()
+                    .flatten()
+                    .filter(|&&&around| around == Type::Roll)
+                    .count()
+                    < 4
+            })
+            .count()
+            .to_string()
+    }
+
+    fn part2(&mut self, input: &str) -> String {
+        let mut grid = Grid::new(
+            input,
+            |c| match c {
+                '.' => Type::Dot,
+                '@' => Type::Roll,
+                _ => panic!("Invalid character"),
+            },
+            false,
+        );
+
+        let mut count = 0;
+
+        loop {
+            let removable = grid
+                .iter_with_coords()
+                .filter(|(v, _)| **v == Type::Roll)
+                .map(|(_, c)| (c, grid.survey_octo(c)))
+                .filter(|(_, survey)| {
+                    survey
+                        .iter()
+                        .flatten()
+                        .filter(|&&&around| around == Type::Roll)
+                        .count()
+                        < 4
+                })
+                .map(|(c, _)| c)
+                .collect_vec();
+
+            if removable.is_empty() {
+                break;
+            }
+
+            for coord in &removable {
+                grid.set(*coord, Type::Dot);
+            }
+
+            count += removable.len();
+        }
+
+        count.to_string()
     }
 }
 
@@ -63,6 +147,40 @@ mod tests {
     #[test]
     fn test_part1() {
         let mut solution = Day4::new();
-        assert_eq!(solution.part1(r#""#), String::from(""));
+        assert_eq!(
+            solution.part1(
+                r#"..@@.@@@@.
+@@@.@.@.@@
+@@@@@.@.@@
+@.@@@@..@.
+@@.@@@@.@@
+.@@@@@@@.@
+.@.@.@.@@@
+@.@@@.@@@@
+.@@@@@@@@.
+@.@.@@@.@."#
+            ),
+            String::from("13")
+        );
+    }
+
+    #[test]
+    fn test_part2() {
+        let mut solution = Day4::new();
+        assert_eq!(
+            solution.part2(
+                r#"..@@.@@@@.
+@@@.@.@.@@
+@@@@@.@.@@
+@.@@@@..@.
+@@.@@@@.@@
+.@@@@@@@.@
+.@.@.@.@@@
+@.@@@.@@@@
+.@@@@@@@@.
+@.@.@@@.@."#
+            ),
+            String::from("43")
+        );
     }
 }

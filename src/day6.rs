@@ -31,7 +31,7 @@
 //!
 //! Solve the problems on the math worksheet. What is the grand total found by adding together all of the answers to the individual problems?
 
-use crate::Solution;
+use crate::{Solution, grid::Grid};
 
 pub struct Day6 {}
 
@@ -41,17 +41,122 @@ impl Solution for Day6 {
     }
 
     fn part1(&mut self, input: &str) -> String {
-        input.to_string()
+        let mut vv = vec![];
+        let mut ops = vec![];
+
+        for line in input.lines() {
+            let mut v = vec![];
+            for num in line.split_whitespace() {
+                if let Ok(num) = num.parse::<i64>() {
+                    v.push(num);
+                } else {
+                    ops.push(num);
+                }
+            }
+
+            if !v.is_empty() {
+                vv.push(v);
+            }
+        }
+
+        let mut total = 0;
+        for (i, op) in ops.iter().enumerate() {
+            total += vv.iter().map(|v| v.iter().nth(i)).fold(
+                if *op == "*" { 1 } else { 0 },
+                |acc, x| {
+                    if *op == "+" {
+                        acc + x.unwrap()
+                    } else {
+                        acc * x.unwrap()
+                    }
+                },
+            );
+        }
+
+        total.to_string()
+    }
+
+    fn part2(&mut self, input: &str) -> String {
+        let grid = Grid::new(input, |c| c, false);
+
+        let mut vv = vec![];
+        let mut ops = vec![];
+        let mut v: Vec<i64> = vec![];
+
+        for col in grid.iter_columns_down() {
+            let mut s = String::new();
+
+            for &v in &col {
+                if v.is_numeric() {
+                    s.push(*v);
+                } else if *v == '*' || *v == '+' {
+                    ops.push(*v);
+                }
+            }
+
+            if s.is_empty() {
+                if !v.is_empty() {
+                    vv.push(v);
+                }
+                v = vec![];
+            } else {
+                v.push(s.parse().unwrap());
+            }
+        }
+
+        vv.push(v);
+
+        assert_eq!(vv.len(), ops.len());
+
+        let mut total = 0;
+        for (op, v) in ops.iter().zip(vv.iter()) {
+            total += v.iter().fold(if *op == '*' { 1 } else { 0 }, |acc, x| {
+                if *op == '+' { acc + x } else { acc * x }
+            });
+        }
+
+        total.to_string()
     }
 }
 
 #[cfg(test)]
 mod tests {
     use super::*;
+    use itertools::Itertools;
 
     #[test]
     fn test_part1() {
         let mut solution = Day6::new();
-        assert_eq!(solution.part1(r#""#), String::from(""));
+        assert_eq!(
+            solution.part1(
+                &[
+                    "123 328  51 64 ",
+                    " 45 64  387 23 ",
+                    "  6 98  215 314",
+                    "*   +   *   +  "
+                ]
+                .iter()
+                .join("\n")
+            ),
+            String::from("4277556")
+        );
+    }
+
+    #[test]
+    fn test_part2() {
+        let mut solution = Day6::new();
+        assert_eq!(
+            solution.part2(
+                &[
+                    "123 328  51 64 ",
+                    " 45 64  387 23 ",
+                    "  6 98  215 314",
+                    "*   +   *   +  "
+                ]
+                .iter()
+                .join("\n")
+            ),
+            String::from("3263827")
+        );
     }
 }

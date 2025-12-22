@@ -70,7 +70,55 @@ impl Solution for Day1 {
     }
 
     fn part1(&mut self, input: &str) -> String {
-        input.to_string()
+        let mut dial_location = 50i16;
+        let mut count_of_zeroes = 0;
+
+        for line in input.trim().lines().map(|l| l.trim()) {
+            let direction = line.chars().next().unwrap();
+            let distance = line[1..].parse::<i16>().unwrap();
+            match direction {
+                'L' => dial_location = (dial_location + distance) % 100,
+                'R' => dial_location = (dial_location - distance) % 100,
+                _ => unreachable!(),
+            }
+            if dial_location == 0 {
+                count_of_zeroes += 1;
+            }
+        }
+
+        count_of_zeroes.to_string()
+    }
+
+    fn known_solution_part1(&self) -> Option<String> {
+        992.to_string().into()
+    }
+
+    fn part2(&mut self, input: &str) -> String {
+        let mut dial_location = 50i16;
+        let mut count_of_zeroes = 0;
+
+        for line in input.trim().lines().map(|l| l.trim()) {
+            let direction = line.chars().next().unwrap();
+            let distance = line[1..].parse::<i16>().unwrap();
+
+            let dial_sign = dial_location.signum();
+
+            match direction {
+                'L' => dial_location = dial_location + distance,
+                'R' => dial_location = dial_location - distance,
+                _ => unreachable!(),
+            }
+
+            let new_dial_sign = dial_location.signum();
+            count_of_zeroes += (dial_location / 100).abs();
+            dial_location = dial_location % 100;
+
+            if (dial_sign != 0 && new_dial_sign != dial_sign) || new_dial_sign == 0 {
+                count_of_zeroes += 1;
+            }
+        }
+
+        count_of_zeroes.to_string()
     }
 }
 
@@ -81,6 +129,40 @@ mod tests {
     #[test]
     fn test_part1() {
         let mut solution = Day1::new();
-        assert_eq!(solution.part1(r#""#), String::from(""));
+        assert_eq!(
+            solution.part1(
+                r#"L68
+        L30
+        R48
+        L5
+        R60
+        L55
+        L1
+        L99
+        R14
+        L82"#
+            ),
+            String::from("3")
+        );
+    }
+
+    #[test]
+    fn test_part2() {
+        let mut solution = Day1::new();
+        assert_eq!(
+            solution.part2(
+                r#"L68
+        L30
+        R48
+        L5
+        R60
+        L55
+        L1
+        L99
+        R14
+        L82"#
+            ),
+            String::from("6")
+        );
     }
 }

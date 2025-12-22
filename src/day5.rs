@@ -48,7 +48,67 @@ impl Solution for Day5 {
     }
 
     fn part1(&mut self, input: &str) -> String {
-        input.to_string()
+        let mut ranges = vec![];
+
+        let mut lines = input.lines();
+
+        for line in lines.by_ref() {
+            if line.is_empty() {
+                break;
+            }
+            let (lower, upper) = line.split_once('-').unwrap();
+            let lower: u64 = lower.parse().unwrap();
+            let upper: u64 = upper.parse().unwrap();
+            ranges.push(lower..=upper);
+        }
+
+        let mut total = 0;
+
+        for line in lines.by_ref() {
+            let id: u64 = line.parse().unwrap();
+            if ranges.iter().any(|range| range.contains(&id)) {
+                total += 1;
+            }
+        }
+
+        total.to_string()
+    }
+
+    fn part2(&mut self, input: &str) -> String {
+        let mut ranges = vec![];
+
+        for line in input.lines() {
+            if line.is_empty() {
+                break;
+            }
+            let (lower, upper) = line.split_once('-').unwrap();
+            let lower: u64 = lower.parse().unwrap();
+            let upper: u64 = upper.parse().unwrap();
+            ranges.push((lower, upper));
+        }
+
+        // Go through each range and remove overlapping ranges
+        ranges.sort_by_key(|range| range.0);
+        let mut merged_ranges = vec![];
+        let mut current_range = ranges[0].clone();
+
+        for range in ranges.iter().skip(1) {
+            if range.0 <= current_range.1 + 1 {
+                current_range.1 = current_range.1.max(range.1);
+            } else {
+                merged_ranges.push(current_range);
+                current_range = range.clone();
+            }
+        }
+
+        merged_ranges.push(current_range);
+
+        let mut total = 0;
+        for range in merged_ranges {
+            total += range.1 - range.0 + 1;
+        }
+
+        total.to_string()
     }
 }
 
@@ -59,6 +119,42 @@ mod tests {
     #[test]
     fn test_part1() {
         let mut solution = Day5::new();
-        assert_eq!(solution.part1(r#""#), String::from(""));
+        assert_eq!(
+            solution.part1(
+                r#"3-5
+10-14
+16-20
+12-18
+
+1
+5
+8
+11
+17
+32"#
+            ),
+            String::from("3")
+        );
+    }
+
+    #[test]
+    fn test_part2() {
+        let mut solution = Day5::new();
+        assert_eq!(
+            solution.part2(
+                r#"3-5
+10-14
+16-20
+12-18
+
+1
+5
+8
+11
+17
+32"#
+            ),
+            String::from("14")
+        );
     }
 }

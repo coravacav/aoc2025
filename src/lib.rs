@@ -3,11 +3,11 @@ pub trait Solution {
     where
         Self: Sized;
 
-    fn part1(&mut self, input: &str) -> String {
-        input.to_string()
+    fn part1(&mut self, _input: &str) -> String {
+        "".to_string()
     }
-    fn part2(&mut self, input: &str) -> String {
-        input.to_string()
+    fn part2(&mut self, _input: &str) -> String {
+        "".to_string()
     }
 
     fn known_solution_part1(&self) -> Option<String> {
@@ -36,7 +36,18 @@ pub mod grid;
 
 pub fn get_solution(day: u8) -> Box<dyn Solution> {
     match day {
+        1 => Box::new(day1::Day1::new()),
+        2 => Box::new(day2::Day2::new()),
         3 => Box::new(day3::Day3::new()),
+        4 => Box::new(day4::Day4::new()),
+        5 => Box::new(day5::Day5::new()),
+        6 => Box::new(day6::Day6::new()),
+        7 => Box::new(day7::Day7::new()),
+        8 => Box::new(day8::Day8::new()),
+        9 => Box::new(day9::Day9::new()),
+        10 => Box::new(day10::Day10::new()),
+        11 => Box::new(day11::Day11::new()),
+        12 => Box::new(day12::Day12::new()),
         _ => panic!("Invalid day"),
     }
 }

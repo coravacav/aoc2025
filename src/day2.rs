@@ -46,7 +46,55 @@ impl Solution for Day2 {
     }
 
     fn part1(&mut self, input: &str) -> String {
-        input.to_string()
+        let mut total: u64 = 0;
+
+        for range in input.trim().split(",") {
+            let (lower, upper) = range.split_once('-').unwrap();
+            let lower: u64 = lower.parse().unwrap();
+            let upper: u64 = upper.parse().unwrap();
+            if lower.ilog10() % 2 == 0 && upper.ilog10() % 2 == 0 {
+                continue;
+            }
+
+            for x in lower..upper + 1 {
+                let xstr = x.to_string();
+                if xstr[..xstr.len() / 2] == xstr[xstr.len() / 2..] {
+                    total += x;
+                }
+            }
+        }
+
+        total.to_string()
+    }
+
+    fn part2(&mut self, input: &str) -> String {
+        let mut total: u64 = 0;
+
+        for range in input.trim().split(",") {
+            let (lower, upper) = range.split_once('-').unwrap();
+            let lower: u64 = lower.parse().unwrap();
+            let upper: u64 = upper.parse().unwrap();
+
+            'next_number: for x in lower..=upper {
+                let xstr = x.to_string();
+                'digit_count: for i in 1..=xstr.len() / 2 {
+                    if xstr.len() % i != 0 {
+                        continue 'digit_count;
+                    }
+
+                    for piece in 0..xstr.len() / i {
+                        if xstr[i * piece..i * (piece + 1)] != xstr[..i] {
+                            continue 'digit_count;
+                        }
+                    }
+
+                    total += x;
+                    continue 'next_number;
+                }
+            }
+        }
+
+        total.to_string()
     }
 }
 
@@ -57,6 +105,22 @@ mod tests {
     #[test]
     fn test_part1() {
         let mut solution = Day2::new();
-        assert_eq!(solution.part1(r#""#), String::from(""));
+        assert_eq!(
+            solution.part1(
+                r#"11-22,95-115,998-1012,1188511880-1188511890,222220-222224,1698522-1698528,446443-446449,38593856-38593862,565653-565659,824824821-824824827,2121212118-2121212124"#
+            ),
+            String::from("1227775554")
+        );
+    }
+
+    #[test]
+    fn test_part2() {
+        let mut solution = Day2::new();
+        assert_eq!(
+            solution.part2(
+                r#"11-22,95-115,998-1012,1188511880-1188511890,222220-222224,1698522-1698528,446443-446449,38593856-38593862,565653-565659,824824821-824824827,2121212118-2121212124"#
+            ),
+            String::from("4174379265")
+        );
     }
 }
