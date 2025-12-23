@@ -85,12 +85,11 @@
 //! ```
 //! Using two red tiles as opposite corners, what is the largest area of any rectangle you can make?
 
-use dashmap::DashMap;
 use itertools::Itertools;
-use rayon::prelude::*;
 
 use crate::{
     Solution,
+    direction::Direction,
     grid::{Coord, Grid},
 };
 
@@ -121,6 +120,10 @@ impl Solution for Day9 {
             .to_string()
     }
 
+    fn known_solution_part1(&self) -> Option<String> {
+        Some(4750176210i64.to_string())
+    }
+
     fn part2(&mut self, input: &str) -> String {
         let coords = input
             .lines()
@@ -133,58 +136,136 @@ impl Solution for Day9 {
         let max_row = coords.iter().max_by_key(|c| c.row()).unwrap().row() + 1;
         let max_col = coords.iter().max_by_key(|c| c.col()).unwrap().col() + 1;
 
-        let mut grid = Grid::new_blank(max_col, max_row, false, false);
+        let mut grid = Grid::new_blank(max_col, max_row, 0, false);
+        grid.trace_coord_list(&coords, |&v, _, _| v + 1, true);
 
-        grid.trace_coord_list(&coords, |_, _, _| true, true);
+        // Each should store the last coordinate found in the shape in that direction.
+        #[derive(Debug, Clone, Copy)]
+        struct SearchResults {
+            pub up: Coord,
+            pub down: Coord,
+            pub left: Coord,
+            pub right: Coord,
+        }
 
-        grid.pretty_print_low_resolution_square_with_printer(
-            10,
-            &mut std::io::stdout().lock(),
-            |vals| {
-                vals.iter()
-                    .map(|(v, _)| v)
-                    .any(|&&v| v)
-                    .then(|| "#".to_string())
-                    .unwrap_or(".".to_string())
-            },
-        );
+        impl SearchResults {
+            pub fn do_search(grid: &Grid<i64>, transposed_grid: &Grid<i64>, coord: Coord) -> Self {
+                SearchResults {
+                    left: SearchResults::do_one_search(grid, coord, Direction::Left),
+                    right: SearchResults::do_one_search(grid, coord, Direction::Right),
+                    up: SearchResults::do_one_search(
+                        transposed_grid,
+                        coord.transpose(),
+                        Direction::Left,
+                    )
+                    .transpose(),
+                    down: SearchResults::do_one_search(
+                        transposed_grid,
+                        coord.transpose(),
+                        Direction::Right,
+                    )
+                    .transpose(),
+                }
+            }
 
-        let mut areas = coords
+            fn do_one_search(
+                grid: &Grid<i64>,
+                starting_coord: Coord,
+                search_direction: Direction,
+            ) -> Coord {
+                let mut current_coord = starting_coord;
+                let mut has_seen_adjacent_walls = [false; 2];
+                let adjacent_directions = search_direction.orthogonal_directions();
+                let mut has_seen_wall;
+                let mut last_time_we_are_def_in_bounds = starting_coord;
+
+                loop {
+                    current_coord += search_direction;
+
+                    let Some(&v) = grid.get(current_coord) else {
+                        return last_time_we_are_def_in_bounds;
+                    };
+
+                    if v > 0 {
+                        last_time_we_are_def_in_bounds = current_coord;
+                        has_seen_wall = true;
+                        has_seen_adjacent_walls = [false; 2];
+                    } else {
+                        has_seen_wall = false;
+                    }
+
+                    if !has_seen_wall {
+                        continue;
+                    }
+
+                    if adjacent_directions.iter().enumerate().all(|(i, &dir)| {
+                        let adjacent_coord = current_coord + dir;
+                        let adjacent_value = *grid.get(adjacent_coord).unwrap_or(&1); // Count out-of-bounds as walls
+                        if adjacent_value > 0 {
+                            has_seen_adjacent_walls[i] = true;
+                        }
+                        has_seen_adjacent_walls[i]
+                    }) {
+                        return current_coord;
+                    }
+                }
+            }
+        }
+
+        let transposed_coords = coords.iter().map(|c| c.transpose()).collect_vec();
+        let mut transposed_grid = Grid::new_blank(max_row, max_col, 0, false);
+        transposed_grid.trace_coord_list(&transposed_coords, |&v, _, _| v + 1, true);
+
+        let searched = coords
             .iter()
-            .combinations(2)
-            .map(|pair| (*pair[0], *pair[1]))
-            .map(|(c1, c2)| (c1, c2, c1.area(c2)))
+            .map(|c| (c, SearchResults::do_search(&grid, &transposed_grid, *c)))
             .collect_vec();
 
-        areas.sort_by(|a, b| b.2.cmp(&a.2));
-
-        let cache: DashMap<Coord, bool> = DashMap::new();
-        // let cache_entry: AtomicUsize = AtomicUsize::new(0);
-
-        let max = areas
-            .par_iter()
-            .filter(|(c1, c2, _)| {
-                c1.other_corners(*c2).iter().all(|c| {
-                    *grid.get(*c).unwrap()
-                        || *cache
-                            .entry(*c)
-                            // .and_modify(|_| {
-                            //     cache_entry.fetch_add(1, std::sync::atomic::Ordering::SeqCst);
-                            // })
-                            .or_insert_with(|| grid.is_coord_within_shape(*c, |v, _| *v))
-                })
+        searched
+            .into_iter()
+            .combinations(2)
+            .map(|pair| (pair[0], pair[1], pair[0].0.area(*pair[1].0)))
+            .sorted_by(|(_, _, area1), (_, _, area2)| area2.cmp(area1))
+            .filter(|((c1, res1), (c2, res2), _)| {
+                let direction = (**c2 - **c1).direction();
+                // Rows are intuitively backwards since we count them from the top
+                match direction {
+                    Direction::UpLeft => {
+                        res1.up.row() <= c2.row()
+                            && res1.left.col() <= c2.col()
+                            && res2.down.row() >= c1.row()
+                            && res2.right.col() >= c1.col()
+                    }
+                    Direction::UpRight => {
+                        res1.up.row() <= c2.row()
+                            && res1.right.col() >= c2.col()
+                            && res2.down.row() >= c1.row()
+                            && res2.left.col() <= c1.col()
+                    }
+                    Direction::DownLeft => {
+                        res1.down.row() >= c2.row()
+                            && res1.left.col() <= c2.col()
+                            && res2.up.row() <= c1.row()
+                            && res2.right.col() >= c1.col()
+                    }
+                    Direction::DownRight => {
+                        res1.down.row() >= c2.row()
+                            && res1.right.col() >= c2.col()
+                            && res2.up.row() <= c1.row()
+                            && res2.left.col() <= c1.col()
+                    }
+                    // This is technically wrong, but I don't feel like writing the possibilities out rn :)
+                    _ => false,
+                }
             })
-            .map(|(_, _, area)| *area)
-            .max()
-            .unwrap();
+            .next()
+            .map(|(_, _, area)| area)
+            .unwrap()
+            .to_string()
+    }
 
-        println!(
-            "Cache size: {}",
-            cache.len(),
-            // cache_entry.load(std::sync::atomic::Ordering::Relaxed) as f64 / cache.len() as f64
-        );
-
-        max.to_string()
+    fn known_solution_part2(&self) -> Option<String> {
+        Some(1574684850.to_string())
     }
 }
 

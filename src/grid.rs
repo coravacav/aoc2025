@@ -7,8 +7,8 @@ use crate::direction::Direction;
 
 #[derive(Copy, Clone, PartialEq, Eq, Hash, PartialOrd)]
 pub struct Coord {
-    row: i32,
-    col: i32,
+    row: i64,
+    col: i64,
 }
 
 impl Ord for Coord {
@@ -35,24 +35,24 @@ impl std::fmt::Debug for Coord {
 
 impl Coord {
     #[inline(always)]
-    pub fn new(row: i32, col: i32) -> Self {
+    pub fn new(row: i64, col: i64) -> Self {
         Self { row, col }
     }
 
     #[inline(always)]
     pub fn new_usize(row: usize, col: usize) -> Self {
-        Self::new(i32::try_from(row).unwrap(), i32::try_from(col).unwrap())
+        Self::new(i64::try_from(row).unwrap(), i64::try_from(col).unwrap())
     }
 
-    pub fn in_bounds(&self, width: i32, height: i32) -> bool {
+    pub fn in_bounds(&self, width: i64, height: i64) -> bool {
         self.row >= 0 && self.row < height && self.col >= 0 && self.col < width
     }
 
-    pub fn row(&self) -> i32 {
+    pub fn row(&self) -> i64 {
         self.row
     }
 
-    pub fn col(&self) -> i32 {
+    pub fn col(&self) -> i64 {
         self.col
     }
 
@@ -64,7 +64,7 @@ impl Coord {
             || (self.col + 1 == other.col && self.row == other.row)
     }
 
-    pub fn manhattan_distance(&self, other: Self) -> i32 {
+    pub fn manhattan_distance(&self, other: Self) -> i64 {
         (self.row - other.row).abs() + (self.col - other.col).abs()
     }
 
@@ -81,7 +81,7 @@ impl Coord {
         }
     }
 
-    pub fn normalize_to_direction(&self) -> Direction {
+    pub fn direction(&self) -> Direction {
         match (self.row.signum(), self.col.signum()) {
             (0, 1) => Direction::Right,
             (0, -1) => Direction::Left,
@@ -99,7 +99,7 @@ impl Coord {
         self.row == 0 && self.col == 0
     }
 
-    pub fn area(&self, other: Self) -> i32 {
+    pub fn area(&self, other: Self) -> i64 {
         let width = (other.col - self.col).abs() + 1;
         let height = (other.row - self.row).abs() + 1;
         width * height
@@ -165,28 +165,31 @@ impl Coord {
         }
 
         let mut traced_coords = vec![];
-        let mut do_trace_step = |mut start: Coord, end: Coord, include_end: bool| {
+        let mut do_trace_step = |mut start: Coord, end: Coord| {
             assert!(start.row() == end.row() || start.col() == end.col());
 
-            let direction = (end - start).normalize_to_direction();
+            let direction = (end - start).direction();
 
             while start != end {
                 traced_coords.push(start);
                 start += direction;
             }
-
-            if include_end {
-                traced_coords.push(end);
-            }
         };
 
         for window in coords.windows(2) {
-            do_trace_step(window[0], window[1], true);
+            do_trace_step(window[0], window[1]);
         }
 
         if close_loop {
-            do_trace_step(coords[coords.len() - 1], coords[0], false);
+            do_trace_step(coords[coords.len() - 1], coords[0]);
         }
+
+        debug_assert!({
+            let starting_len = traced_coords.len();
+            traced_coords.sort();
+            traced_coords.dedup();
+            starting_len == traced_coords.len()
+        });
 
         traced_coords
     }
@@ -221,6 +224,13 @@ impl Coord {
             *self + Direction::Down,
         ]
     }
+
+    pub fn transpose(&self) -> Self {
+        Self {
+            row: self.col,
+            col: self.row,
+        }
+    }
 }
 
 impl std::ops::Add<Coord> for Coord {
@@ -234,10 +244,10 @@ impl std::ops::Add<Coord> for Coord {
     }
 }
 
-impl std::ops::Add<i32> for Coord {
+impl std::ops::Add<i64> for Coord {
     type Output = Self;
 
-    fn add(self, rhs: i32) -> Self::Output {
+    fn add(self, rhs: i64) -> Self::Output {
         Self {
             row: self.row + rhs,
             col: self.col + rhs,
@@ -263,10 +273,10 @@ impl std::ops::SubAssign<Coord> for Coord {
     }
 }
 
-impl std::ops::Mul<i32> for Coord {
+impl std::ops::Mul<i64> for Coord {
     type Output = Self;
 
-    fn mul(self, other: i32) -> Self::Output {
+    fn mul(self, other: i64) -> Self::Output {
         Self {
             row: self.row * other,
             col: self.col * other,
@@ -284,8 +294,8 @@ impl std::ops::AddAssign<Coord> for Coord {
 #[derive(Debug, Clone)]
 pub struct Grid<T> {
     data: Vec<T>,
-    width: i32,
-    height: i32,
+    width: i64,
+    height: i64,
     wrapping: bool,
 }
 
@@ -341,22 +351,42 @@ impl<T: PartialEq> Grid<T> {
         };
 
         Self {
-            width: width as i32,
-            height: height as i32,
+            width: width as i64,
+            height: height as i64,
             data: grid,
             wrapping,
         }
     }
 
-    pub fn width(&self) -> i32 {
+    pub fn transpose(&self) -> Grid<T>
+    where
+        T: Clone,
+    {
+        let mut transposed_data = Vec::with_capacity(self.data.len());
+
+        for col in 0..self.width {
+            for row in 0..self.height {
+                transposed_data.push(self[Coord::new(row, col)].clone());
+            }
+        }
+
+        Grid {
+            data: transposed_data,
+            width: self.height,
+            height: self.width,
+            wrapping: self.wrapping,
+        }
+    }
+
+    pub fn width(&self) -> i64 {
         self.width
     }
 
-    pub fn height(&self) -> i32 {
+    pub fn height(&self) -> i64 {
         self.height
     }
 
-    pub fn new_blank(width: i32, height: i32, value: T, wrapping: bool) -> Self
+    pub fn new_blank(width: i64, height: i64, value: T, wrapping: bool) -> Self
     where
         T: Clone,
     {
@@ -379,7 +409,7 @@ impl<T: PartialEq> Grid<T> {
 
     pub fn iter_with_coords(&self) -> impl DoubleEndedIterator<Item = (&T, Coord)> {
         self.data.iter().enumerate().map(|(i, t)| {
-            let i = i32::try_from(i).unwrap();
+            let i = i64::try_from(i).unwrap();
 
             (t, Coord::new(i / self.width, i % self.width))
         })
@@ -390,7 +420,15 @@ impl<T: PartialEq> Grid<T> {
     }
 
     pub fn iter_rows(&self) -> impl DoubleEndedIterator<Item = &[T]> {
-        self.data.chunks(self.width as usize)
+        assert!(self.data.len() as i64 == self.width * self.height);
+
+        self.data.chunks_exact(self.width as usize)
+    }
+
+    pub fn iter_rows_mut(&mut self) -> impl DoubleEndedIterator<Item = &mut [T]> {
+        assert!(self.data.len() as i64 == self.width * self.height);
+
+        self.data.chunks_exact_mut(self.width as usize)
     }
 
     pub fn iter_columns_down(&self) -> impl Iterator<Item = Vec<&T>> {
@@ -655,7 +693,7 @@ impl<T: PartialEq> Grid<T> {
     {
         // Create a new ImageBuffer
         let img = ImageBuffer::from_fn(self.width as u32, self.height as u32, |x, y| {
-            let coord = Coord::new(y as i32, x as i32);
+            let coord = Coord::new(y as i64, x as i64);
             value_to_color(&self[coord], coord)
         });
 
@@ -735,10 +773,10 @@ impl<T: PartialEq> Grid<T> {
                 line.iter()
                     .enumerate()
                     .map(|(j, t)| {
-                        if i as i32 >= min_row
-                            && i as i32 <= max_row
-                            && j as i32 >= min_col
-                            && j as i32 <= max_col
+                        if i as i64 >= min_row
+                            && i as i64 <= max_row
+                            && j as i64 >= min_col
+                            && j as i64 <= max_col
                         {
                             use colored::*;
                             printer(t).on_bright_red().black().to_string()
@@ -766,12 +804,12 @@ impl<T: PartialEq> Grid<T> {
         let mut width_chunks = Vec::new();
 
         for row_start in (0..self.height).step_by(height_factor) {
-            let row_end = (row_start + height_factor as i32).min(self.height);
+            let row_end = (row_start + height_factor as i64).min(self.height);
             height_chunks.push(row_start..row_end);
         }
 
         for col_start in (0..self.width).step_by(width_factor) {
-            let col_end = (col_start + width_factor as i32).min(self.width);
+            let col_end = (col_start + width_factor as i64).min(self.width);
             width_chunks.push(col_start..col_end);
         }
 
@@ -784,7 +822,7 @@ impl<T: PartialEq> Grid<T> {
                 block_values.clear();
                 for row in row_range.clone() {
                     for col in col_range.clone() {
-                        let coord = Coord::new(row as i32, col as i32);
+                        let coord = Coord::new(row as i64, col as i64);
                         block_values.push((&self[coord], coord));
                     }
                 }
@@ -916,11 +954,11 @@ mod tests {
             Coord::new(3, 7),
         ];
 
-        let mut grid = Grid::new_blank(12, 8, false, false);
-        grid.trace_coord_list(&coords, |_, _, _| true, true);
+        let mut grid = Grid::new_blank(12, 8, '.', false);
+        grid.trace_coord_list(&coords, |_, _, _| '#', true);
 
         let mut v = Vec::new();
-        grid.pretty_print_with_printer(&mut v, |v| if *v { '#' } else { '.' }.to_string());
+        grid.pretty_print(&mut v);
 
         assert_eq!(
             str::from_utf8(&v).unwrap(),
@@ -937,10 +975,10 @@ mod tests {
             .trim_start()
         );
 
-        grid.flood_fill(Coord::new(2, 10), |v, _| !v, |_, _| true, true);
+        grid.flood_fill(Coord::new(2, 10), |v, _| *v == '.', |_, _| '#', true);
 
         let mut v = Vec::new();
-        grid.pretty_print_with_printer(&mut v, |v| if *v { '#' } else { '.' }.to_string());
+        grid.pretty_print(&mut v);
 
         assert_eq!(
             str::from_utf8(&v).unwrap(),
@@ -991,5 +1029,69 @@ mod tests {
                 panic!("Coord {} should be inside shape", coord);
             }
         }
+    }
+
+    #[test]
+    fn test_transpose() {
+        let mut coords = [
+            Coord::new(1, 7),
+            Coord::new(1, 11),
+            Coord::new(7, 11),
+            Coord::new(7, 9),
+            Coord::new(5, 9),
+            Coord::new(5, 2),
+            Coord::new(3, 2),
+            Coord::new(3, 7),
+        ];
+
+        let mut grid = Grid::new_blank(12, 8, '.', false);
+        grid.trace_coord_list(&coords, |_, _, _| '#', true);
+
+        let mut v = Vec::new();
+        grid.pretty_print(&mut v);
+
+        assert_eq!(
+            str::from_utf8(&v).unwrap(),
+            r#"
+............
+.......#####
+.......#...#
+..######...#
+..#........#
+..########.#
+.........#.#
+.........###
+"#
+            .trim_start()
+        );
+
+        let grid = grid.transpose();
+        let mut v = Vec::new();
+        grid.pretty_print(&mut v);
+        assert_eq!(
+            str::from_utf8(&v).unwrap(),
+            r#"
+........
+........
+...###..
+...#.#..
+...#.#..
+...#.#..
+...#.#..
+.###.#..
+.#...#..
+.#...###
+.#.....#
+.#######
+"#
+            .trim_start()
+        );
+
+        coords.iter_mut().for_each(|c| *c = c.transpose());
+        let mut grid_from_transposed = Grid::new_blank(8, 12, '.', false);
+        grid_from_transposed.trace_coord_list(&coords, |_, _, _| '#', true);
+        let mut v2 = Vec::new();
+        grid_from_transposed.pretty_print(&mut v2);
+        assert_eq!(str::from_utf8(&v).unwrap(), str::from_utf8(&v2).unwrap(),);
     }
 }

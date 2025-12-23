@@ -86,6 +86,16 @@ impl Direction {
             Self::None => panic!("Cannot get offset of None"),
         }
     }
+
+    pub fn orthogonal_directions(&self) -> [Direction; 2] {
+        match self {
+            Direction::Up | Direction::Down => [Direction::Left, Direction::Right],
+            Direction::Left | Direction::Right => [Direction::Up, Direction::Down],
+            Direction::UpLeft | Direction::DownRight => [Direction::UpRight, Direction::DownLeft],
+            Direction::UpRight | Direction::DownLeft => [Direction::UpLeft, Direction::DownRight],
+            Direction::None => panic!("Cannot get orthogonal directions of None"),
+        }
+    }
 }
 
 impl std::ops::Add<Coord> for Direction {
